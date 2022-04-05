@@ -128,6 +128,8 @@ func main() {
 	if err := r.Close(); err != nil {
 		log.Fatal("Failed to close reader :", err)
 	}
+
+	fmt.Println("")
 }
 
 func printUsageAndErrorAndExit(message string) {
