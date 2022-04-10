@@ -2,18 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/qkrtjddlf11/kafkaConsumer/common"
+
 	influxdb2 "github.com/influxdata/influxdb-client-go"
 	"github.com/influxdata/influxdb-client-go/api"
 	"github.com/segmentio/kafka-go"
 )
 
-type telegrafJson struct {
+type telegraf struct {
 	Fields struct {
 	} `json:"fields"`
 	Name string `json:"name"`
@@ -71,19 +74,19 @@ func initializeInfluxDB() api.WriteAPIBlocking {
 	return writeAPI
 }
 
-func WriteInfluxPoint(w api.WriteAPIBlocking) {
+func writeInfluxPoint(w api.WriteAPIBlocking, host, hostname_ip, svr_id, vrc, level, alertName, message, value string) {
 	p := influxdb2.NewPoint("alertServer",
 		map[string]string{
-			"host":        "t.Tags.Host",
-			"hostname_ip": "t.Tags.Hostname_IP",
-			"svr_id":      "t.Tags.Svr_Id",
-			"vrc":         "t.Tags.Vrc",
-			"level":       "level",
-			"alertName":   "alertName",
+			"host":        host,
+			"hostname_ip": hostname_ip,
+			"svr_id":      svr_id,
+			"vrc":         vrc,
+			"level":       level,
+			"alertName":   alertName,
 		},
 		map[string]interface{}{
-			"message": "message",
-			"value":   "value",
+			"message": message,
+			"value":   value,
 		},
 		time.Now())
 
@@ -114,12 +117,32 @@ func main() {
 	for {
 		message, err := r.FetchMessage(ctx)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			break
 		}
 
-		fmt.Printf("Message at Topic -> %v, Partition -> %v, Offset -> %v, Key -> %s, Value -> %s\n", message.Topic, message.Partition, message.Offset, string(message.Key), string(message.Value))
-		WriteInfluxPoint(writeAPI)
+		log.Printf("Message at Topic -> %v, Partition -> %v, Offset -> %v, Key -> %s, Value -> %s\n", message.Topic, message.Partition, message.Offset, string(message.Key), string(message.Value))
+
+		telegraf := telegraf{}
+		err = json.Unmarshal([]uint8(string(message.Value)), &telegraf)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		switch telegraf.Name {
+		case "mem":
+			telegrafMemory := common.TelegrafMemory{}
+			err := json.Unmarshal([]uint8(string(message.Value)), &telegrafMemory)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if telegrafMemory.Fields.UsedPercent > 80.0 {
+				value := fmt.Sprintf("%1f", telegrafMemory.Fields.UsedPercent)
+				writeInfluxPoint(writeAPI, telegrafMemory.Tags.Host, telegrafMemory.Tags.HostnameIP, telegrafMemory.Tags.SvrID, telegrafMemory.Tags.Vrc, "mem-used-percent", "", "<TEST>", value)
+			}
+		}
+
 		if err := r.CommitMessages(ctx, message); err != nil {
 			log.Fatal("Failed to commit messages :", err)
 		}
@@ -128,8 +151,6 @@ func main() {
 	if err := r.Close(); err != nil {
 		log.Fatal("Failed to close reader :", err)
 	}
-
-	fmt.Println("")
 }
 
 func printUsageAndErrorAndExit(message string) {
