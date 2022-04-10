@@ -74,27 +74,6 @@ func initializeInfluxDB() api.WriteAPIBlocking {
 	return writeAPI
 }
 
-func writeInfluxPoint(w api.WriteAPIBlocking, host, hostname_ip, svr_id, vrc, level, alertName, message, value string) {
-	p := influxdb2.NewPoint("alertServer",
-		map[string]string{
-			"host":        host,
-			"hostname_ip": hostname_ip,
-			"svr_id":      svr_id,
-			"vrc":         vrc,
-			"level":       level,
-			"alertName":   alertName,
-		},
-		map[string]interface{}{
-			"message": message,
-			"value":   value,
-		},
-		time.Now())
-
-	if err := w.WritePoint(context.Background(), p); err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
 	flag.Parse()
 
@@ -129,19 +108,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		switch telegraf.Name {
-		case "mem":
-			telegrafMemory := common.TelegrafMemory{}
-			err := json.Unmarshal([]uint8(string(message.Value)), &telegrafMemory)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if telegrafMemory.Fields.UsedPercent > 80.0 {
-				value := fmt.Sprintf("%1f", telegrafMemory.Fields.UsedPercent)
-				writeInfluxPoint(writeAPI, telegrafMemory.Tags.Host, telegrafMemory.Tags.HostnameIP, telegrafMemory.Tags.SvrID, telegrafMemory.Tags.Vrc, "mem-used-percent", "", "<TEST>", value)
-			}
-		}
+		common.SelectNameOfTelegraf(message, telegraf.Name, writeAPI)
 
 		if err := r.CommitMessages(ctx, message); err != nil {
 			log.Fatal("Failed to commit messages :", err)
