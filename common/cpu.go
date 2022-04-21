@@ -7,7 +7,7 @@ type TelegrafCPU struct {
 		UsageIdle      float64 `json:"usage_idle"`
 		UsageIowait    float64 `json:"usage_iowait"`
 		UsageIrq       int     `json:"usage_irq"`
-		UsageNice      int     `json:"usage_nice"`
+		UsageNice      float64 `json:"usage_nice"`
 		UsageSoftirq   float64 `json:"usage_softirq"`
 		UsageSteal     int     `json:"usage_steal"`
 		UsageSystem    float64 `json:"usage_system"`

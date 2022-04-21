@@ -8,7 +8,7 @@ import (
 	"time"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go"
-	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/influxdata/influxdb-client-go/api"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -25,22 +25,55 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 	switch typeOf {
 	case "mem":
 		telegrafMemory := TelegrafMemory{}
-		err := json.Unmarshal([]uint8(string(message.Value)), &telegrafMemory)
-		if err != nil {
+		if err := json.Unmarshal([]uint8(string(message.Value)), &telegrafMemory); err != nil {
 			log.Fatal(err)
 		}
 
 		value = fmt.Sprintf("%1f", telegrafMemory.Fields.UsedPercent)
 
 		if telegrafMemory.Fields.UsedPercent > 80.0 {
-			measurementMessage = CreateMessage("mem", CRITICAL, value)
+			measurementMessage = CreateMessage("mem", CRITICAL, value, "")
 		} else if telegrafMemory.Fields.UsedPercent > 70.0 {
-			measurementMessage = CreateMessage("mem", WARNING, value)
+			measurementMessage = CreateMessage("mem", WARNING, value, "")
 		} else {
-			measurementMessage = CreateMessage("mem", OK, value)
+			measurementMessage = CreateMessage("mem", OK, value, "")
+		}
+		writeInfluxPoint(writeAPI, telegrafMemory.Tags.Host, telegrafMemory.Tags.HostnameIP, telegrafMemory.Tags.SvrID, telegrafMemory.Tags.Vrc, CRITICAL, "mem-used-percent", measurementMessage, value)
+
+	case "cpu":
+		telegrafCpu := TelegrafCPU{}
+		if err := json.Unmarshal([]uint8(string(message.Value)), &telegrafCpu); err != nil {
+			log.Fatal(err)
 		}
 
-		writeInfluxPoint(writeAPI, telegrafMemory.Tags.Host, telegrafMemory.Tags.HostnameIP, telegrafMemory.Tags.SvrID, telegrafMemory.Tags.Vrc, CRITICAL, "mem-used-percent", measurementMessage, value)
+		usedPercent := 100.0 - telegrafCpu.Fields.UsageIdle
+		value = fmt.Sprintf("%1f", usedPercent)
+
+		if usedPercent > 50.0 {
+			measurementMessage = CreateMessage("cpu", CRITICAL, value, "")
+		} else if usedPercent > 30.0 {
+			measurementMessage = CreateMessage("cpu", WARNING, value, "")
+		} else {
+			measurementMessage = CreateMessage("cpu", OK, value, "")
+		}
+		writeInfluxPoint(writeAPI, telegrafCpu.Tags.Host, telegrafCpu.Tags.HostnameIP, telegrafCpu.Tags.SvrID, telegrafCpu.Tags.Vrc, CRITICAL, "cpu-used-percent", measurementMessage, value)
+
+	case "disk":
+		telegrafDisk := TelegrafDisk{}
+		if err := json.Unmarshal([]uint8(string(message.Value)), &telegrafDisk); err != nil {
+			log.Fatal(err)
+		}
+
+		value = fmt.Sprintf("%1f", telegrafDisk.Fields.UsedPercent)
+
+		if telegrafDisk.Fields.UsedPercent > 90 {
+			measurementMessage = CreateMessage("disk", CRITICAL, value, telegrafDisk.Tags.Path)
+		} else if telegrafDisk.Fields.UsedPercent > 85 {
+			measurementMessage = CreateMessage("disk", WARNING, value, telegrafDisk.Tags.Path)
+		} else {
+			measurementMessage = CreateMessage("disk", OK, value, telegrafDisk.Tags.Path)
+		}
+		writeInfluxPoint(writeAPI, telegrafDisk.Tags.Host, telegrafDisk.Tags.HostnameIP, telegrafDisk.Tags.SvrID, telegrafDisk.Tags.Vrc, CRITICAL, "disk-"+telegrafDisk.Tags.Path+"-used-percent", measurementMessage, value)
 	}
 }
 
