@@ -14,6 +14,9 @@ func CreateMessage(typeOf, level, value, path string) (message string) {
 
 	case "disk":
 		message = fmt.Sprintf("[%s] DISK => INFO: %s | PATH : %s | USED PERCENT : %s", level, "COMMON", path, value)
+
+	case "swap":
+		message = fmt.Sprintf("[%s] SWAP => INFO: %s | USED PERCENT : %s", level, "COMMON", value)
 	}
 
 	return message

@@ -16,7 +16,7 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type telegraf struct {
+type Telegraf struct {
 	Fields struct {
 	} `json:"fields"`
 	Name string `json:"name"`
@@ -100,9 +100,9 @@ func main() {
 			break
 		}
 
-		log.Printf("Message at Topic -> %v, Partition -> %v, Offset -> %v, Key -> %s, Value -> %s\n", message.Topic, message.Partition, message.Offset, string(message.Key), string(message.Value))
+		//log.Printf("Message at Topic -> %v, Partition -> %v, Offset -> %v, Key -> %s, Value -> %s\n", message.Topic, message.Partition, message.Offset, string(message.Key), string(message.Value))
 
-		telegraf := telegraf{}
+		telegraf := Telegraf{}
 		err = json.Unmarshal([]uint8(string(message.Value)), &telegraf)
 		if err != nil {
 			log.Fatal(err)
