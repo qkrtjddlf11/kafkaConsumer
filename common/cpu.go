@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 type TelegrafCPU struct {
 	Fields struct {
 		UsageGuest     int     `json:"usage_guest"`
@@ -23,4 +25,25 @@ type TelegrafCPU struct {
 		Vrc        string `json:"vrc"`
 	} `json:"tags"`
 	Timestamp int `json:"timestamp"`
+}
+
+func CheckTelegrafCPUUsedPercent(telegrafCpu TelegrafCPU, warning, critical int) (string, string, string) {
+	var level string
+	var measurementMessage string
+
+	usedPercent := 100.0 - telegrafCpu.Fields.UsageIdle
+	value := fmt.Sprintf("%.1f", usedPercent)
+
+	if usedPercent > float64(critical) {
+		level = CRITICAL
+		measurementMessage = CreateMessage("cpu", level, value, "")
+	} else if usedPercent > float64(warning) {
+		level = WARNING
+		measurementMessage = CreateMessage("cpu", level, value, "")
+	} else {
+		level = OK
+		measurementMessage = CreateMessage("cpu", level, value, "")
+	}
+
+	return level, value, measurementMessage
 }

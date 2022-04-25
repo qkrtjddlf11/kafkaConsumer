@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 type TelegrafSwap struct {
 	Fields struct {
 		Free        int     `json:"free"`
@@ -16,4 +18,25 @@ type TelegrafSwap struct {
 		Vrc        string `json:"vrc"`
 	} `json:"tags"`
 	Timestamp int `json:"timestamp"`
+}
+
+func CheckTelegrafSwapUsedPercent(telegrafSwap TelegrafSwap, warning, critical int) (string, string, string) {
+	var value string
+	var level string
+	var measurementMessage string
+
+	value = fmt.Sprintf("%.1f", telegrafSwap.Fields.UsedPercent)
+
+	if telegrafSwap.Fields.UsedPercent > float64(critical) {
+		level = CRITICAL
+		measurementMessage = CreateMessage("swap", level, value, "")
+	} else if telegrafSwap.Fields.UsedPercent > float64(warning) {
+		level = WARNING
+		measurementMessage = CreateMessage("swap", level, value, "")
+	} else {
+		level = OK
+		measurementMessage = CreateMessage("swap", level, value, "")
+	}
+
+	return level, value, measurementMessage
 }

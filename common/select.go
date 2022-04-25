@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -31,7 +30,7 @@ const (
 )
 
 func getTelegrafCommonJson() []TelegrafCommon {
-	file, _ := ioutil.ReadFile("/tmp/common.json")
+	file, _ := ioutil.ReadFile("common.json")
 	telegrafCommon := []TelegrafCommon{}
 	_ = json.Unmarshal([]byte(file), &telegrafCommon)
 
@@ -39,11 +38,8 @@ func getTelegrafCommonJson() []TelegrafCommon {
 }
 
 func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.WriteAPIBlocking) {
-	var value string
-	var level string
 	var critical int
 	var warning int
-	var measurementMessage string
 
 	telegrafCommon := getTelegrafCommonJson()
 	for _, v := range telegrafCommon {
@@ -62,18 +58,7 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 			log.Fatal(err)
 		}
 
-		value = fmt.Sprintf("%.1f", telegrafMemory.Fields.UsedPercent)
-
-		if telegrafMemory.Fields.UsedPercent > float64(critical) {
-			level = CRITICAL
-			measurementMessage = CreateMessage("mem", level, value, "")
-		} else if telegrafMemory.Fields.UsedPercent > float64(warning) {
-			level = WARNING
-			measurementMessage = CreateMessage("mem", level, value, "")
-		} else {
-			level = OK
-			measurementMessage = CreateMessage("mem", level, value, "")
-		}
+		level, value, measurementMessage := CheckTelegrafMemoryUsedPercent(telegrafMemory, warning, critical)
 		writeInfluxPoint(writeAPI, telegrafMemory.Tags.Host, telegrafMemory.Tags.HostnameIP, telegrafMemory.Tags.SvrID, telegrafMemory.Tags.Vrc, level, "mem-used-percent", measurementMessage, value)
 
 	case "cpu":
@@ -82,19 +67,7 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 			log.Fatal(err)
 		}
 
-		usedPercent := 100.0 - telegrafCpu.Fields.UsageIdle
-		value = fmt.Sprintf("%.1f", usedPercent)
-
-		if usedPercent > float64(critical) {
-			level = CRITICAL
-			measurementMessage = CreateMessage("cpu", level, value, "")
-		} else if usedPercent > float64(warning) {
-			level = WARNING
-			measurementMessage = CreateMessage("cpu", level, value, "")
-		} else {
-			level = OK
-			measurementMessage = CreateMessage("cpu", level, value, "")
-		}
+		level, value, measurementMessage := CheckTelegrafCPUUsedPercent(telegrafCpu, warning, critical)
 		writeInfluxPoint(writeAPI, telegrafCpu.Tags.Host, telegrafCpu.Tags.HostnameIP, telegrafCpu.Tags.SvrID, telegrafCpu.Tags.Vrc, level, "cpu-used-percent", measurementMessage, value)
 
 	case "disk":
@@ -103,18 +76,7 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 			log.Fatal(err)
 		}
 
-		value = fmt.Sprintf("%.1f", telegrafDisk.Fields.UsedPercent)
-
-		if telegrafDisk.Fields.UsedPercent > float64(critical) {
-			level = CRITICAL
-			measurementMessage = CreateMessage("disk", level, value, telegrafDisk.Tags.Path)
-		} else if telegrafDisk.Fields.UsedPercent > float64(warning) {
-			level = WARNING
-			measurementMessage = CreateMessage("disk", level, value, telegrafDisk.Tags.Path)
-		} else {
-			level = OK
-			measurementMessage = CreateMessage("disk", level, value, telegrafDisk.Tags.Path)
-		}
+		level, value, measurementMessage := CheckTelegrafDiskUsedPercent(telegrafDisk, warning, critical)
 		writeInfluxPoint(writeAPI, telegrafDisk.Tags.Host, telegrafDisk.Tags.HostnameIP, telegrafDisk.Tags.SvrID, telegrafDisk.Tags.Vrc, level, "disk-used-percent-"+telegrafDisk.Tags.Path, measurementMessage, value)
 
 	case "swap":
@@ -124,18 +86,7 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 		}
 
 		if telegrafSwap.Fields.Total != 0 {
-			value := fmt.Sprintf("%1f", telegrafSwap.Fields.UsedPercent)
-
-			if telegrafSwap.Fields.UsedPercent > float64(critical) {
-				level = CRITICAL
-				measurementMessage = CreateMessage("swap", level, value, "")
-			} else if telegrafSwap.Fields.UsedPercent > float64(warning) {
-				level = WARNING
-				measurementMessage = CreateMessage("swap", level, value, "")
-			} else {
-				level = OK
-				measurementMessage = CreateMessage("swap", level, value, "")
-			}
+			level, value, measurementMessage := CheckTelegrafSwapUsedPercent(telegrafSwap, warning, critical)
 			writeInfluxPoint(writeAPI, telegrafSwap.Tags.Host, telegrafSwap.Tags.HostnameIP, telegrafSwap.Tags.SvrID, telegrafSwap.Tags.Vrc, level, "swap-used-percent", measurementMessage, value)
 		}
 	}

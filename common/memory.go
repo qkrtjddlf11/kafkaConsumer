@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 type TelegrafMemory struct {
 	Fields struct {
 		Active           int     `json:"active"`
@@ -46,4 +48,24 @@ type TelegrafMemory struct {
 		Vrc        string `json:"vrc"`
 	} `json:"tags"`
 	Timestamp int `json:"timestamp"`
+}
+
+func CheckTelegrafMemoryUsedPercent(telegrafMemory TelegrafMemory, warning, critical int) (string, string, string) {
+	var level string
+	var measurementMessage string
+
+	value := fmt.Sprintf("%.1f", telegrafMemory.Fields.UsedPercent)
+
+	if telegrafMemory.Fields.UsedPercent > float64(critical) {
+		level = CRITICAL
+		measurementMessage = CreateMessage("mem", level, value, "")
+	} else if telegrafMemory.Fields.UsedPercent > float64(warning) {
+		level = WARNING
+		measurementMessage = CreateMessage("mem", level, value, "")
+	} else {
+		level = OK
+		measurementMessage = CreateMessage("mem", level, value, "")
+	}
+
+	return level, value, measurementMessage
 }

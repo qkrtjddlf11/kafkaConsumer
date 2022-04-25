@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 type TelegrafDisk struct {
 	Fields struct {
 		Free        int64   `json:"free"`
@@ -23,4 +25,24 @@ type TelegrafDisk struct {
 		Vrc        string `json:"vrc"`
 	} `json:"tags"`
 	Timestamp int `json:"timestamp"`
+}
+
+func CheckTelegrafDiskUsedPercent(telegrafDisk TelegrafDisk, warning, critical int) (string, string, string) {
+	var level string
+	var measurementMessage string
+
+	value := fmt.Sprintf("%.1f", telegrafDisk.Fields.UsedPercent)
+
+	if telegrafDisk.Fields.UsedPercent > float64(critical) {
+		level = CRITICAL
+		measurementMessage = CreateMessage("disk", level, value, telegrafDisk.Tags.Path)
+	} else if telegrafDisk.Fields.UsedPercent > float64(warning) {
+		level = WARNING
+		measurementMessage = CreateMessage("disk", level, value, telegrafDisk.Tags.Path)
+	} else {
+		level = OK
+		measurementMessage = CreateMessage("disk", level, value, telegrafDisk.Tags.Path)
+	}
+
+	return level, value, measurementMessage
 }
