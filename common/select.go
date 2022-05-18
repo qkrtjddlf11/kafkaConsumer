@@ -30,7 +30,8 @@ const (
 )
 
 func getTelegrafCommonJson() []TelegrafCommon {
-	file, _ := ioutil.ReadFile("common.json")
+	//file, _ := ioutil.ReadFile("/Users/parksungil/go/src/github.com/qkrtjddlf11/kafkaConsumer/common.json")
+	file, _ := ioutil.ReadFile("/tmp/common.json")
 	telegrafCommon := []TelegrafCommon{}
 	_ = json.Unmarshal([]byte(file), &telegrafCommon)
 
@@ -47,6 +48,7 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 		if strtmp[0] == typeOf {
 			critical = v.Critical
 			warning = v.Warning
+			//log.Println(warning, critical, typeOf)
 			break
 		}
 	}
@@ -88,6 +90,18 @@ func SelectNameOfTelegraf(message kafka.Message, typeOf string, writeAPI api.Wri
 		if telegrafSwap.Fields.Total != 0 {
 			level, value, measurementMessage := CheckTelegrafSwapUsedPercent(telegrafSwap, warning, critical)
 			writeInfluxPoint(writeAPI, telegrafSwap.Tags.Host, telegrafSwap.Tags.HostnameIP, telegrafSwap.Tags.SvrID, telegrafSwap.Tags.Vrc, level, "swap-used-percent", measurementMessage, value)
+		}
+
+	//{"fields":{"load1":0,"load15":0.05,"load5":0.01,"n_cpus":4,"n_users":2},"name":"system","tags":{"host":"KAFKA-VM01","hostname_ip":"KAFKA-VM01_172.30.1.210","svctype":"Control","svr_id":"kafka-vm01","vrc":"Control"},"timestamp":1652878860}
+	case "system":
+		telegrafLoad5 := Load5{}
+		if err := json.Unmarshal([]uint8(string(message.Value)), &telegrafLoad5); err != nil {
+			log.Fatal("Error -> ", err)
+		}
+
+		if telegrafLoad5.Fields.NCpus != 0 {
+			level, value, measurementMessage := CheckTelegrafLoad5Percent(telegrafLoad5, warning, critical)
+			writeInfluxPoint(writeAPI, telegrafLoad5.Tags.Host, telegrafLoad5.Tags.HostnameIP, telegrafLoad5.Tags.SvrID, telegrafLoad5.Tags.Vrc, level, "load5-used-percent", measurementMessage, value)
 		}
 	}
 

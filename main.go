@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/qkrtjddlf11/kafkaConsumer/common"
@@ -37,7 +38,7 @@ var (
 		-1,
 		"Topic Partition\nUsage : -partition=3")
 
-	kafkaBrokers = flag.String(
+	brokers = flag.String(
 		"brokers",
 		"",
 		"Kafka Broker Servers\nUsage : -brokers=172.30.1.210:9092")
@@ -50,11 +51,26 @@ var (
 
 // initializeKafka initialize Kafka configuration
 func initializeKafka() *kafka.Reader {
+	// Autthentication For SASL
+	/*
+		mechanism := plain.Mechanism{
+			Username: "admin",
+			Password: "admin-secret",
+		}
+
+		dailer := &kafka.Dialer{
+			Timeout:       time.Second * 5,
+			DualStack:     true,
+			SASLMechanism: mechanism,
+		}
+	*/
+
+	parseBrokers := strings.Split(*brokers, ",")
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{*kafkaBrokers},
+		Brokers: parseBrokers,
 		GroupID: "telegraf",
 		Topic:   *topic,
-		//Partition: 1,
+		//Partition:         *partition,
 		MinBytes:          10e3, // 10KB
 		MaxBytes:          10e6, // 10MB
 		MaxAttempts:       5,
@@ -83,7 +99,7 @@ func main() {
 	if *partition == -1 {
 		printUsageAndErrorAndExit("-partition is required")
 	}
-	if *kafkaBrokers == "" {
+	if *brokers == "" {
 		printUsageAndErrorAndExit("-brokers is required")
 	}
 	if *influx == "" {
@@ -96,7 +112,7 @@ func main() {
 	for {
 		message, err := r.FetchMessage(ctx)
 		if err != nil {
-			log.Println(err)
+			log.Panic(err)
 			break
 		}
 
