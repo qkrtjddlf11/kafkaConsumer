@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/qkrtjddlf11/kafkaConsumer/common"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go"
@@ -26,31 +27,15 @@ type Telegraf struct {
 	Timestamp int `json:"timestamp"`
 }
 
-// Kafka options
-var (
-	topic = flag.String(
-		"topic",
-		"",
-		"Kafka Topic\nUsage : -topic=telegraf")
-
-	partition = flag.Int(
-		"partition",
-		-1,
-		"Topic Partition\nUsage : -partition=3")
-
-	brokers = flag.String(
-		"brokers",
-		"",
-		"Kafka Broker Servers\nUsage : -brokers=172.30.1.210:9092")
-
-	influx = flag.String(
-		"influx",
-		"",
-		"InfluxDB Server\nUsage : -influx=172.30.1.220:8086")
-)
+type Env struct {
+	Topic     string
+	Partition string
+	Brokers   string
+	Influx    string
+}
 
 // initializeKafka initialize Kafka configuration
-func initializeKafka() *kafka.Reader {
+func initializeKafka(env Env) *kafka.Reader {
 	// Autthentication For SASL
 	/*
 		mechanism := plain.Mechanism{
@@ -65,11 +50,11 @@ func initializeKafka() *kafka.Reader {
 		}
 	*/
 
-	parseBrokers := strings.Split(*brokers, ",")
+	parseBrokers := strings.Split(env.Brokers, ",")
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: parseBrokers,
 		GroupID: "telegraf",
-		Topic:   *topic,
+		Topic:   env.Topic,
 		//Partition:         *partition,
 		MinBytes:          10e3, // 10KB
 		MaxBytes:          10e6, // 10MB
@@ -83,31 +68,33 @@ func initializeKafka() *kafka.Reader {
 	return r
 }
 
-func initializeInfluxDB() api.WriteAPIBlocking {
-	client := influxdb2.NewClient(*influx, "")
+func initializeInfluxDB(env Env) api.WriteAPIBlocking {
+	client := influxdb2.NewClient(env.Influx, "")
 	writeAPI := client.WriteAPIBlocking("", "telegraf")
 
 	return writeAPI
 }
 
+func getEnv() Env {
+	if err := godotenv.Load("/usr/service/etc/.env"); err != nil {
+		log.Fatal("Error loading .env file.")
+	}
+
+	env := Env{
+		Topic:     os.Getenv("TOPIC"),
+		Partition: os.Getenv("PARTITION"),
+		Brokers:   os.Getenv("BROKERS"),
+		Influx:    os.Getenv("INFLUX"),
+	}
+
+	return env
+}
+
 func main() {
-	flag.Parse()
+	env := getEnv()
+	r := initializeKafka(env)
+	writeAPI := initializeInfluxDB(env)
 
-	if *topic == "" {
-		printUsageAndErrorAndExit("-topic is required")
-	}
-	if *partition == -1 {
-		printUsageAndErrorAndExit("-partition is required")
-	}
-	if *brokers == "" {
-		printUsageAndErrorAndExit("-brokers is required")
-	}
-	if *influx == "" {
-		printUsageAndErrorAndExit("-influx is required")
-	}
-
-	r := initializeKafka()
-	writeAPI := initializeInfluxDB()
 	ctx := context.Background()
 	for {
 		message, err := r.FetchMessage(ctx)
@@ -134,6 +121,10 @@ func main() {
 	if err := r.Close(); err != nil {
 		log.Fatal("Failed to close reader :", err)
 	}
+}
+
+func gotEnv() {
+	panic("unimplemented")
 }
 
 func printUsageAndErrorAndExit(message string) {
